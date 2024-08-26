@@ -94,7 +94,7 @@ public class AsyncVideoEncoder implements AutoCloseable {
             }
 
             int dstPixelFormat = PixelFormatHelper.getBestPixelFormat(settings.encoder());
-            boolean needsRescale = SRC_PIXEL_FORMAT != dstPixelFormat;
+            boolean needsRescale = false;//SRC_PIXEL_FORMAT != dstPixelFormat;
 
             final FFmpegFrameRecorder recorder = new FFmpegFrameRecorder(
                     filename, width, height, settings.recordAudio() ? 1 : 0);
@@ -104,7 +104,7 @@ public class AsyncVideoEncoder implements AutoCloseable {
             recorder.setVideoCodecName(settings.encoder());
             recorder.setFormat(extension);
             recorder.setFrameRate(fps);
-            recorder.setPixelFormat(dstPixelFormat);
+            recorder.setPixelFormat(SRC_PIXEL_FORMAT);
             recorder.setGopSize((int) Math.max(20, Math.min(240, Math.ceil(fps * 2))));
 
             if (settings.recordAudio()) {
