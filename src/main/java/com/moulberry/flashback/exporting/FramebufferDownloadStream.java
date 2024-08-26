@@ -16,7 +16,6 @@ import static org.lwjgl.opengl.GL11.glGetError;
 import static org.lwjgl.opengl.GL45.*;
 
 public class FramebufferDownloadStream implements AutoCloseable {
-    private final MainTarget framebuffer;
     private final int downloadStream;
     private final long downloadPtr;
     private final int framebufferSizeBytes;
@@ -60,7 +59,6 @@ public class FramebufferDownloadStream implements AutoCloseable {
     public FramebufferDownloadStream(int width, int height, int maxFramesInflight) {
         this.width = width;
         this.height = height;
-        this.framebuffer = new MainTarget(width, height);
         this.framebufferSizeBytes = width*height*4;//4 bytes per pixel
         this.maxFramesInflight = maxFramesInflight;
 
@@ -118,6 +116,5 @@ public class FramebufferDownloadStream implements AutoCloseable {
         }
         glUnmapNamedBuffer(this.downloadStream);
         glDeleteBuffers(this.downloadStream);
-        this.framebuffer.destroyBuffers();
     }
 }
