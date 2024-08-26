@@ -19,6 +19,7 @@ public class FramebufferDownloadStream implements AutoCloseable {
     private final int downloadStream;
     private final long downloadPtr;
     private final int framebufferSizeBytes;
+    private final int rowWidthBytes;
 
     private final int width;
     private final int height;
@@ -60,6 +61,7 @@ public class FramebufferDownloadStream implements AutoCloseable {
         this.width = width;
         this.height = height;
         this.framebufferSizeBytes = width*height*4;//4 bytes per pixel
+        this.rowWidthBytes = width*4;//4 bytes per pixel
         this.maxFramesInflight = maxFramesInflight;
 
         long size = maxFramesInflight*(long)this.framebufferSizeBytes;
@@ -97,8 +99,15 @@ public class FramebufferDownloadStream implements AutoCloseable {
             frame.free();
 
             NativeImage nativeImage = new NativeImage(NativeImage.Format.RGBA, this.width, this.height, false);
-            MemoryUtil.memCopy(frame.offset, nativeImage.pixels, nativeImage.size);
-            nativeImage.flipY();
+            if (true) {
+                int i = 0;
+                for (int y = this.height-1; y>=0; y--) {
+                    MemoryUtil.memCopy(frame.offset + (long) y *this.rowWidthBytes, nativeImage.pixels + ((long)i++)*this.rowWidthBytes, this.rowWidthBytes);
+                }
+            } else {
+                MemoryUtil.memCopy(frame.offset, nativeImage.pixels, nativeImage.size);
+                //nativeImage.flipY();
+            }
 
             //nativeImage
             frames.add(new CompletedFrame(nativeImage, frame.audioBuffer));
