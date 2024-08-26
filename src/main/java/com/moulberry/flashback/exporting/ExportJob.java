@@ -14,14 +14,10 @@ import com.moulberry.flashback.compat.IrisApiWrapper;
 import com.moulberry.flashback.keyframe.KeyframeType;
 import com.moulberry.flashback.keyframe.handler.KeyframeHandler;
 import com.moulberry.flashback.keyframe.handler.MinecraftKeyframeHandler;
-import com.moulberry.flashback.state.EditorState;
-import com.moulberry.flashback.state.EditorStateManager;
 import com.moulberry.flashback.playback.ReplayServer;
-import com.moulberry.flashback.state.KeyframeTrack;
+import com.moulberry.flashback.state.EditorState;
 import it.unimi.dsi.fastutil.doubles.DoubleArrayList;
 import it.unimi.dsi.fastutil.doubles.DoubleList;
-import it.unimi.dsi.fastutil.floats.FloatArrayList;
-import it.unimi.dsi.fastutil.floats.FloatList;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;
 import net.minecraft.client.gui.Font;
@@ -42,12 +38,7 @@ import java.nio.FloatBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
-import java.util.ArrayList;
-import java.util.EnumSet;
-import java.util.List;
-import java.util.Objects;
-import java.util.Random;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.LockSupport;
 
@@ -131,7 +122,7 @@ public class ExportJob {
             infoRenderTarget = new TextureTarget(mainTarget.width, mainTarget.height, false, Minecraft.ON_OSX);
 
             try (AsyncVideoEncoder encoder = new AsyncVideoEncoder(this.settings, tempFileName);
-                    SaveableFramebufferQueue downloader = new SaveableFramebufferQueue(this.settings.resolutionX(), this.settings.resolutionY())) {
+                 FramebufferDownloadStream downloader = new FramebufferDownloadStream(this.settings.resolutionX(), this.settings.resolutionY(), 10)) {
                 doExport(encoder, downloader, infoRenderTarget);
             }
 
@@ -164,7 +155,7 @@ public class ExportJob {
         }
     }
 
-    private void doExport(AsyncVideoEncoder encoder, SaveableFramebufferQueue downloader, TextureTarget infoRenderTarget) {
+    private void doExport(AsyncVideoEncoder encoder, FramebufferDownloadStream downloader, TextureTarget infoRenderTarget) {
         ReplayServer replayServer = Flashback.getReplayServer();
         if (replayServer == null) {
             return;
@@ -249,13 +240,13 @@ public class ExportJob {
             boolean asyncFrameCapture = !IrisApiWrapper.isIrisAvailable() || !IrisApiWrapper.isShaderPackInUse();
 
             RenderTarget oldTarget = null;
-            SaveableFramebuffer saveable = null;
+            FramebufferDownloadStream.DownloadFrame saveable = null;
             RenderTarget renderTarget;
 
             if (asyncFrameCapture) {
                 oldTarget = Minecraft.getInstance().getMainRenderTarget();
                 saveable = downloader.take();
-                renderTarget = saveable.getFramebuffer(this.settings.resolutionX(), this.settings.resolutionY());
+                renderTarget = saveable.getFramebuffer();
 
                 Minecraft.getInstance().mainRenderTarget = renderTarget;
             } else {
@@ -305,7 +296,7 @@ public class ExportJob {
                 submitDownloadedFrames(encoder, downloader, false);
 
                 saveable.audioBuffer = audioBuffer;
-                downloader.startDownload(saveable);
+                downloader.download(saveable);
             } else {
                 this.shouldChangeFramebufferSize = false;
                 cancel = finishFrame(renderTarget, infoRenderTarget, tickIndex, ticks.size());
@@ -430,19 +421,20 @@ public class ExportJob {
         }
     }
 
-    private void submitDownloadedFrames(AsyncVideoEncoder encoder, SaveableFramebufferQueue downloader, boolean drain) {
-        SaveableFramebufferQueue.DownloadedFrame frame;
+    private void submitDownloadedFrames(AsyncVideoEncoder encoder, FramebufferDownloadStream downloader, boolean drain) {
         while (true) {
             long start = System.nanoTime();
-            frame = downloader.finishDownload(drain);
+            var frames = downloader.poll(drain);
             downloadTimeNanos += System.nanoTime() - start;
 
-            if (frame == null) {
+            if (frames.isEmpty()) {
                 break;
             }
 
             start = System.nanoTime();
-            encoder.encode(frame.image(), frame.audioBuffer());
+            for (var frame : frames) {
+                encoder.encode(frame.image(), frame.audioBuffer());
+            }
             encodeTimeNanos += System.nanoTime() - start;
         }
     }
