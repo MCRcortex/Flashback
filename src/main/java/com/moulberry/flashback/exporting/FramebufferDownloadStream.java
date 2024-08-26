@@ -78,7 +78,7 @@ public class FramebufferDownloadStream implements AutoCloseable {
 
         long size = maxFramesInflight*(long)this.framebufferSizeBytes;
         this.downloadStream = glCreateBuffers();
-        glNamedBufferStorage(this.downloadStream, size, GL_CLIENT_STORAGE_BIT|GL_MAP_PERSISTENT_BIT|GL_MAP_READ_BIT|GL_MAP_COHERENT_BIT);
+        glNamedBufferStorage(this.downloadStream, size, GL_CLIENT_STORAGE_BIT|GL_MAP_PERSISTENT_BIT|GL_MAP_READ_BIT);
         this.downloadPtr = nglMapNamedBufferRange(this.downloadStream, 0, size, GL_MAP_READ_BIT|GL_MAP_PERSISTENT_BIT);
 
         try {
@@ -131,6 +131,12 @@ public class FramebufferDownloadStream implements AutoCloseable {
 
     public List<CompletedFrame> poll(boolean drain) {
         List<CompletedFrame> frames = new ArrayList<>();
+
+        if (!this.inflight.isEmpty() && ((this.start+1)%this.maxFramesInflight)==this.end) {
+            //Stops No downstream space available!
+            this.inflight.peek().waitFence();
+        }
+
         while ((!this.inflight.isEmpty())&&(drain||this.inflight.peek().isReady())) {
             var frame = this.inflight.poll();
             if (drain) {
