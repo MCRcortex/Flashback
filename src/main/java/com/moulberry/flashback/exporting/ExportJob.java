@@ -124,7 +124,7 @@ public class ExportJob {
             infoRenderTarget = new TextureTarget(mainTarget.width, mainTarget.height, false, Minecraft.ON_OSX);
 
             try (AsyncVideoEncoder encoder = new AsyncVideoEncoder(this.settings, tempFileName);
-                 FramebufferDownloadStream downloader = new FramebufferDownloadStream(this.settings.resolutionX(), this.settings.resolutionY(), 10)) {
+                 FramebufferDownloadStream downloader = new FramebufferDownloadStream(this.settings.resolutionX(), this.settings.resolutionY(), 64)) {
                 doExport(encoder, downloader, infoRenderTarget);
             }
 

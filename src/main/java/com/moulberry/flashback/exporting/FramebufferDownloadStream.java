@@ -42,7 +42,7 @@ public class FramebufferDownloadStream implements AutoCloseable {
 
     private final ArrayDeque<FrameInflight> inflight = new ArrayDeque<>();
 
-    public record CompletedFrame(NativeImage image, @Nullable FloatBuffer audioBuffer) {
+    public record CompletedFrame(NativeImageBuffer image, @Nullable FloatBuffer audioBuffer) {
 
     }
 
@@ -145,8 +145,8 @@ public class FramebufferDownloadStream implements AutoCloseable {
 
             frame.free();
 
-            NativeImage nativeImage = new NativeImage(NativeImage.Format.RGBA, this.width, this.height, false);
-            MemoryUtil.memCopy(frame.offset, nativeImage.pixels, nativeImage.size);
+            NativeImageBuffer nativeImage = new NativeImageBuffer(frame.offset, this.width, this.height, this.framebufferSizeBytes);//NativeImage.Format.RGBA
+            //MemoryUtil.memCopy(frame.offset, nativeImage.pixels, nativeImage.size);
 
             frames.add(new CompletedFrame(nativeImage, frame.audioBuffer));
 

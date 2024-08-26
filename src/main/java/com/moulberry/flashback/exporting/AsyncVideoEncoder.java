@@ -54,9 +54,11 @@ public class AsyncVideoEncoder implements AutoCloseable {
     private static final int SRC_PIXEL_FORMAT = avutil.AV_PIX_FMT_RGBA;
 
     private record ImageFrame(long pointer, int size, int width, int height, int channels, int imageDepth, int stride, int pixelFormat,
-                              @Nullable FloatBuffer audioBuffer) implements AutoCloseable {
+                              @Nullable FloatBuffer audioBuffer, boolean shouldFree) implements AutoCloseable {
         public void close() {
-            MemoryUtil.nmemFree(this.pointer);
+            if (this.shouldFree) {
+                MemoryUtil.nmemFree(this.pointer);
+            }
         }
     }
 
@@ -277,7 +279,7 @@ public class AsyncVideoEncoder implements AutoCloseable {
                             0, src.height, picture_ptr, picture.linesize());
 
                     this.encodeQueue.put(new ImageFrame(tempPointerAddress, dstSize, dstWidth, dstHeight, dstChannels, dstDepth,
-                            dstWidth, dstPixelFormat, src.audioBuffer));
+                            dstWidth, dstPixelFormat, src.audioBuffer, true));
                 } catch (Throwable t) {
                     try {
                         av_frame_free(picture);
@@ -317,18 +319,17 @@ public class AsyncVideoEncoder implements AutoCloseable {
         }
     }
 
-    public void encode(NativeImage src, @Nullable FloatBuffer audioBuffer) {
-        checkEncodeError(src);
+    public void encode(NativeImageBuffer src, @Nullable FloatBuffer audioBuffer) {
+        checkEncodeError(null);
 
         if (this.finishRescaleThread.get() || this.finishEncodeThread.get() || this.finishedWriting.get()) {
-            src.close();
             throw new IllegalStateException("Cannot encode after finish()");
         }
 
         while (true) {
             try {
-                ImageFrame imageFrame = new ImageFrame(src.pixels, (int) src.size, src.getWidth(), src.getHeight(),
-                        4, Frame.DEPTH_INT, src.getWidth(), SRC_PIXEL_FORMAT, audioBuffer);
+                ImageFrame imageFrame = new ImageFrame(src.ptr(), src.size(), src.width(), src.height(),
+                        4, Frame.DEPTH_INT, src.width(), SRC_PIXEL_FORMAT, audioBuffer, false);
                 if (this.rescaleQueue != null) {
                     this.rescaleQueue.put(imageFrame);
                 } else {
@@ -336,7 +337,7 @@ public class AsyncVideoEncoder implements AutoCloseable {
                 }
                 break;
             } catch (InterruptedException ignored) {}
-            checkEncodeError(src);
+            checkEncodeError(null);
         }
     }
 
