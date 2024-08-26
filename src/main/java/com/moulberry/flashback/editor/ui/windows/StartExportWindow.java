@@ -26,6 +26,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import org.jetbrains.annotations.Nullable;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
 
@@ -50,6 +51,7 @@ public class StartExportWindow {
     private static boolean recordAudio = false;
     private static AudioCodec audioCodec = AudioCodec.AAC;
 
+    private static Path defaultExportPath = null;
     private static final ImString jobName = ImGuiHelper.createResizableImString("");
 
     static {
@@ -158,6 +160,13 @@ public class StartExportWindow {
                         audioCodec = newAudioCodec;
                     }
                 }
+
+                EditorState editorState = EditorStateManager.getCurrent();
+                if (editorState != null && editorState.audioSourceEntity != null) {
+                    ImGui.text("Audio Source: \nEntity(" + editorState.audioSourceEntity + ")");
+                } else {
+                    ImGui.text("Audio Source: Camera");
+                }
             } else {
                 recordAudio = false;
             }
@@ -214,12 +223,19 @@ public class StartExportWindow {
 
         String encoder = videoCodec.getEncoders()[selectedVideoEncoder[0]];
 
-        Path defaultExportPath = FabricLoader.getInstance().getGameDir();
+        if (defaultExportPath == null || !Files.exists(defaultExportPath)) {
+            defaultExportPath = FabricLoader.getInstance().getGameDir();
+        }
 
         String defaultName = null;
         if (name != null) {
             try {
                 defaultName = FileUtil.findAvailableName(defaultExportPath, name, "." + container.extension());
+            } catch (Exception ignored) {}
+        }
+        if (defaultName == null) {
+            try {
+                defaultName = FileUtil.findAvailableName(defaultExportPath, "output", "." + container.extension());
             } catch (Exception ignored) {}
         }
         if (defaultName == null) {
@@ -251,6 +267,7 @@ public class StartExportWindow {
                 }
 
                 Path path = Path.of(pathStr);
+                defaultExportPath = path.getParent();
                 return new ExportSettings(name, editorState.copy(),
                     player.position(), player.getYRot(), player.getXRot(),
                     resolution[0], resolution[1], start, end,

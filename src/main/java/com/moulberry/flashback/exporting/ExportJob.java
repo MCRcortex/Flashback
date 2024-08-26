@@ -328,20 +328,20 @@ public class ExportJob {
     private void setup(ReplayServer replayServer) {
         Minecraft minecraft = Minecraft.getInstance();
 
-        // Clear particles
-        minecraft.particleEngine.clearParticles();
-
         int currentTick = Math.max(0, this.settings.startTick() - 20);
 
         // Ensure replay server is paused at currentTick
         this.setServerTickAndWait(replayServer, currentTick, true);
         this.runClientTick();
 
+        // Clear particles
+        minecraft.particleEngine.clearParticles();
+
         // Advance until tick is at start
         while (currentTick < this.settings.startTick()) {
+            currentTick += 1;
             this.setServerTickAndWait(replayServer, currentTick, true);
             this.runClientTick();
-            currentTick += 1;
         }
 
         // Apply initial position and keyframes at start tick
@@ -379,10 +379,29 @@ public class ExportJob {
     private void runClientTick() {
         this.tryUnfreezeClient();
 
-        while (Minecraft.getInstance().pollTask()) {}
-        Minecraft.getInstance().tick();
-        Minecraft.getInstance().getSoundManager().updateSource(Minecraft.getInstance().gameRenderer.getMainCamera());
+        Minecraft minecraft = Minecraft.getInstance();
+
+        while (minecraft.pollTask()) {}
+        minecraft.tick();
+        this.updateSoundSound(minecraft);
+
         this.tryUnfreezeClient();
+    }
+
+    private void updateSoundSound(Minecraft minecraft) {
+        EditorState editorState = EditorStateManager.getCurrent();
+        if (editorState != null && editorState.audioSourceEntity != null && minecraft.level != null) {
+            Entity sourceEntity = minecraft.level.getEntities().get(editorState.audioSourceEntity);
+            if (sourceEntity != null) {
+                Camera dummyCamera = new Camera();
+                dummyCamera.eyeHeight = sourceEntity.getEyeHeight();
+                dummyCamera.setup(minecraft.level, sourceEntity, false, false, 1.0f);
+                minecraft.getSoundManager().updateSource(dummyCamera);
+                return;
+            }
+        }
+
+        minecraft.getSoundManager().updateSource(Minecraft.getInstance().gameRenderer.getMainCamera());
     }
 
     private void tryUnfreezeClient() {
