@@ -1,6 +1,7 @@
 package com.moulberry.flashback.exporting;
 
 import com.mojang.blaze3d.pipeline.MainTarget;
+import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.platform.NativeImage;
 import org.jetbrains.annotations.Nullable;
 import org.lwjgl.opengl.GL30C;
@@ -31,20 +32,6 @@ public class FramebufferDownloadStream implements AutoCloseable {
 
     public record CompletedFrame(NativeImage image, @Nullable FloatBuffer audioBuffer) {
 
-    }
-
-    public static final class DownloadFrame {
-        public @Nullable FloatBuffer audioBuffer;
-
-        private MainTarget framebuffer;
-
-        private DownloadFrame(MainTarget framebuffer) {
-            this.framebuffer = framebuffer;
-        }
-
-        public MainTarget getFramebuffer() {
-            return this.framebuffer;
-        }
     }
 
     private record FrameInflight(long fence, long offset, @Nullable FloatBuffer audioBuffer) {
@@ -83,11 +70,8 @@ public class FramebufferDownloadStream implements AutoCloseable {
         this.downloadPtr = nglMapNamedBufferRange(this.downloadStream, 0, size, GL_MAP_READ_BIT|GL_MAP_PERSISTENT_BIT);
     }
 
-    public DownloadFrame take() {
-        return new DownloadFrame(this.framebuffer);
-    }
 
-    public void download(DownloadFrame frame) {
+    public void download(RenderTarget frame, @Nullable FloatBuffer audioBuffer) {
         int idx = this.start++; this.start %= this.maxFramesInflight;
         if (((idx+1)%this.maxFramesInflight)==this.end) {
             throw new IllegalStateException("No downstream space available!");
@@ -95,13 +79,13 @@ public class FramebufferDownloadStream implements AutoCloseable {
 
         long downOffset = idx*(long)this.framebufferSizeBytes;
 
-        frame.framebuffer.bindWrite(true);
+        frame.bindWrite(true);
         GL30C.glBindBuffer(GL30C.GL_PIXEL_PACK_BUFFER, this.downloadStream);
         GL30C.glReadPixels(0, 0, this.width, this.height, GL30C.GL_RGBA, GL30C.GL_UNSIGNED_BYTE, downOffset);
         GL30C.glBindBuffer(GL30C.GL_PIXEL_PACK_BUFFER, 0);
-        frame.framebuffer.unbindWrite();
+        frame.unbindWrite();
 
-        this.inflight.add(new FrameInflight(downOffset + this.downloadPtr, frame.audioBuffer));
+        this.inflight.add(new FrameInflight(downOffset + this.downloadPtr, audioBuffer));
     }
 
     public List<CompletedFrame> poll(boolean drain) {
