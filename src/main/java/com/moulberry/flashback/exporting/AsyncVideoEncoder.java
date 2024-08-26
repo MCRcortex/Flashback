@@ -51,7 +51,7 @@ public class AsyncVideoEncoder implements AutoCloseable {
 
     private final AtomicReference<Throwable> threadedError = new AtomicReference<>(null);
 
-    private static final int SRC_PIXEL_FORMAT = avutil.AV_PIX_FMT_RGBA;
+    private static final int SRC_PIXEL_FORMAT = AV_PIX_FMT_RGBA;//avutil.AV_PIX_FMT_RGBA;
 
     private record ImageFrame(long pointer, int size, int width, int height, int channels, int imageDepth, int stride, int pixelFormat,
                               @Nullable FloatBuffer audioBuffer, boolean shouldFree) implements AutoCloseable {

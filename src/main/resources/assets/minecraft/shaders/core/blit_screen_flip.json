@@ -1,6 +1,6 @@
 {
     "vertex": "blit_screen_flip",
-    "fragment": "blit_screen",
+    "fragment": "blit_screen_flip",
     "samplers": [
         { "name": "DiffuseSampler" }
     ],
