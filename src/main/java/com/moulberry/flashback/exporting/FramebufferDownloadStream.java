@@ -106,7 +106,7 @@ public class FramebufferDownloadStream implements AutoCloseable {
 
     public List<CompletedFrame> poll(boolean drain) {
         List<CompletedFrame> frames = new ArrayList<>();
-        while ((!this.inflight.isEmpty())&&(this.inflight.peek().isReady()||drain)) {
+        while ((!this.inflight.isEmpty())&&(drain||this.inflight.peek().isReady())) {
             var frame = this.inflight.poll();
             if (drain) {
                 frame.waitFence();
@@ -114,7 +114,7 @@ public class FramebufferDownloadStream implements AutoCloseable {
 
             frame.free();
 
-            NativeImage nativeImage = new NativeImage(NativeImage.Format.RGBA, width, height, false);
+            NativeImage nativeImage = new NativeImage(NativeImage.Format.RGBA, this.width, this.height, false);
             MemoryUtil.memCopy(frame.offset, nativeImage.pixels, nativeImage.size);
             nativeImage.flipY();
 
